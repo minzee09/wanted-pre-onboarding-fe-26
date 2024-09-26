@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { MockData } from "./api/mockData";
 import styled from "styled-components";
 import { getMockData } from "./api/getMockData";
@@ -21,18 +21,52 @@ const App: React.FC = () => {
     });
   }, [pageNum]);
 
+  const observer = useRef<IntersectionObserver | null>(null);
+  const lastItemRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      if (loading) return; // 로딩 중이면 실행하지 않음
+      if (observer.current) observer.current.disconnect(); // 이전 관찰자 해제
+
+      observer.current = new IntersectionObserver((entries) => {
+        if (entries[0].isIntersecting && !isEnd) {
+          setPageNum((prevPageNum) => prevPageNum + 1); // 페이지 번호 증가
+        }
+      });
+
+      if (node) observer.current.observe(node); // 요소 관찰 시작
+    },
+    [loading, isEnd],
+  );
+
   return (
     <Container>
       <TotalText>총 금액: ${totalPrice}</TotalText>
-      {items.map((item) => (
-        <ItemContainer key={item.productId}>
-          <RowWrapper>
-            <ItemName>{item.productName}</ItemName>
-            <ItemPrice>${item.price}</ItemPrice>
-          </RowWrapper>
-          <ItemDate>{item.boughtDate}</ItemDate>
-        </ItemContainer>
-      ))}
+      {items.map((item, index) => {
+        if (index === items.length - 1) {
+          // 마지막 아이템에 ref 연결
+          return (
+            <ItemContainer ref={lastItemRef} key={item.productId}>
+              <RowWrapper>
+                <ItemName>{item.productName}</ItemName>
+                <ItemPrice>${item.price}</ItemPrice>
+              </RowWrapper>
+              <ItemDate>{item.boughtDate}</ItemDate>
+            </ItemContainer>
+          );
+        } else {
+          return (
+            <ItemContainer key={item.productId}>
+              <RowWrapper>
+                <ItemName>{item.productName}</ItemName>
+                <ItemPrice>${item.price}</ItemPrice>
+              </RowWrapper>
+              <ItemDate>{item.boughtDate}</ItemDate>
+            </ItemContainer>
+          );
+        }
+      })}
+      {loading && <LoadingMessage>로딩 중...</LoadingMessage>}
+      {isEnd && <EndMessage>더 이상 상품이 없습니다.</EndMessage>}
     </Container>
   );
 };
@@ -83,6 +117,16 @@ const ItemPrice = styled.div`
 const ItemDate = styled.div`
   font-size: 14px;
   color: #b4b4b4;
+`;
+
+const LoadingMessage = styled.p`
+  text-align: center;
+  font-weight: bold;
+`;
+
+const EndMessage = styled.p`
+  text-align: center;
+  color: #474747;
 `;
 
 export default App;
